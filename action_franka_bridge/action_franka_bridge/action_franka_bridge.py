@@ -1,28 +1,19 @@
 """
-Interpret command mode from user, and converts actions from the diffusion
-model into robot motion.
+Receive the action sequence from the diffusion inference, convert it into
+a sequence of waypoints, and request the actions on the robot using a
+Franka MoveIt API.
 
-This node interprets three command states from the user: Begin ('b'), Action
-('a'), Pause ('p' or 's'). These states are used to control whether or not the
-robot performs the actions from the subscribed /predicted_action topic. Actions
-and current robot pose are used within two PD loops, one for position and one for
-orientation, to control the robot.
-
-SUBSCRIBERS:
-  + /predicted_action (Pose) - The next action position from the diffusion model.
-  + /command_mode (String) - The command mode based on the key pressed.
 PUBLISHERS:
-  + /text_marker (Marker) - The text marker that is published to RViz.
-  + /bounding_box (Marker) - The bounding box marker that is published to RViz.
-  + /desired_ee_pose (Pose) - The desired pose of the end effector.
+  + /current_action (Float32MultiArray) - The current action sequence that is being executed (for data collection only).
+  + /ee_before_action (Float32MultiArray) - The end effector pose before the action sequence is executed (for data collection only).
+SUBSCRIBERS:
+  + /predicted_action (Float32MultiArray) - The next action sequence from the diffusion model.
 SERVICE CLIENTS:
-  + /robot_waypoints (PlanPath) - The service that plans and executes the robot's
-    motion.
-  + /record (Empty) - The service that initiates recording the demonstration data.
+  + /start_diffusion (Empty) - The service that triggers the next diffusion inference after robot execution is complete.
 """
 from geometry_msgs.msg import Pose, Point, Quaternion
 
-from std_msgs.msg import String, Float32MultiArray, MultiArrayDimension
+from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 from std_srvs.srv import Empty
 
 from tf2_ros.buffer import Buffer
@@ -55,11 +46,10 @@ class ActionFrankaBridge(Node):
         self.timer_freqency = self.get_parameter('frequency').get_parameter_value().double_value
 
         # create callback groups
-        self.waypoint_callback_group = MutuallyExclusiveCallbackGroup()
-        self.command_mode_callback_group = MutuallyExclusiveCallbackGroup()
+        self.action_callback_group = MutuallyExclusiveCallbackGroup()
 
         # create subscribers
-        self.action_subscriber = self.create_subscription(Float32MultiArray, 'predicted_action', self.action_callback, 10, callback_group=self.waypoint_callback_group)
+        self.action_subscriber = self.create_subscription(Float32MultiArray, 'predicted_action', self.action_callback, 10, callback_group=self.action_callback_group)
 
         # publishers for actions
         self.current_action_pub = self.create_publisher(Float32MultiArray, 'current_action', 10)
@@ -113,7 +103,7 @@ class ActionFrankaBridge(Node):
         """Get the current pose of the end-effector."""
 
         try:
-            ee_home_pos, ee_home_rot = self.get_transform("panda_link0", "panda_hand_tcp")
+            ee_home_pos, _ = self.get_transform("panda_link0", "panda_hand_tcp")
             return [ee_home_pos.x, ee_home_pos.y]
         except:
             self.get_logger().info('Could not get ee pose transform.')
@@ -123,52 +113,27 @@ class ActionFrankaBridge(Node):
 
         self.waypoints = []
 
-        total_waypoints = 30
-        interp_points = np.linspace(0,1,total_waypoints)
-        x_interp = np.interp(interp_points, np.linspace(0,1,len(list(self.action_array[:,0]))), self.action_array[:,0])
-        y_interp = np.interp(interp_points, np.linspace(0,1,len(list(self.action_array[:,1]))), self.action_array[:,1])
-        interpolated_points = np.column_stack((x_interp, y_interp))
-
-        # for i, (x,y) in enumerate(self.action_array):
-
-        #     if x < self.x_limits[0] or x > self.x_limits[1]:
-        #         self.action_array[i][0] = self.x_limits[0] if x < self.x_limits[0] else self.x_limits[1]
-        #         self.get_logger().info('Trying to go to far out of X')
-            
-        #     if (y < self.y_limits[0] or y > self.y_limits[1]):
-        #         self.action_array[i][1] = self.y_limits[0] if self.desired_ee_pose.position.y < self.y_limits[0] else self.y_limits[1]
-        #         self.get_logger().info('Trying to go to far out of Y')
-            
-        #     if ((y < self.y_inner[1] and y > self.y_inner[0]) and x < self.x_limits[0]):
-        #         self.get_logger().info('Too close to base!!!!!!!!!!!!!')
-        #         upper_diff = abs(self.y_inner[1] - y)
-        #         lower_diff = abs(self.y_inner[0] - y)
-        #         self.action_array[i][1] = self.y_inner[1] if upper_diff < lower_diff else self.y_inner[0]
-
-        #     temp_pose = Pose(
-        #                      position=Point(x=float(self.action_array[i][0]), y=float(self.action_array[i][1]), z=0.085),
-        #                      orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
-        #                     )
-        for i, (x,y) in enumerate(interpolated_points):
+        for i, (x,y) in enumerate(self.action_array):
 
             if x < self.x_limits[0] or x > self.x_limits[1]:
-                interpolated_points[i][0] = self.x_limits[0] if x < self.x_limits[0] else self.x_limits[1]
+                self.action_array[i][0] = self.x_limits[0] if x < self.x_limits[0] else self.x_limits[1]
                 self.get_logger().info('Trying to go to far out of X')
             
             if (y < self.y_limits[0] or y > self.y_limits[1]):
-                interpolated_points[i][1] = self.y_limits[0] if self.desired_ee_pose.position.y < self.y_limits[0] else self.y_limits[1]
+                self.action_array[i][1] = self.y_limits[0] if self.desired_ee_pose.position.y < self.y_limits[0] else self.y_limits[1]
                 self.get_logger().info('Trying to go to far out of Y')
             
             if ((y < self.y_inner[1] and y > self.y_inner[0]) and x < self.x_limits[0]):
                 self.get_logger().info('Too close to base!!!!!!!!!!!!!')
                 upper_diff = abs(self.y_inner[1] - y)
                 lower_diff = abs(self.y_inner[0] - y)
-                interpolated_points[i][1] = self.y_inner[1] if upper_diff < lower_diff else self.y_inner[0]
+                self.action_array[i][1] = self.y_inner[1] if upper_diff < lower_diff else self.y_inner[0]
 
             temp_pose = Pose(
-                             position=Point(x=float(interpolated_points[i][0]), y=float(interpolated_points[i][1]), z=0.085),
+                             position=Point(x=float(self.action_array[i][0]), y=float(self.action_array[i][1]), z=0.085),
                              orientation=Quaternion(x=1.0, y=0.0, z=0.0, w=0.0),
                             )
+            
             self.waypoints.append(temp_pose)
 
     def action_callback(self, msg):

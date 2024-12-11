@@ -29,7 +29,7 @@ from select import select
 
 class CommandMode(Node):
     def __init__(self):
-        super().__init__("commandmode")
+        super().__init__("command_mode")
 
         # create timer
         self.timer = self.create_timer(0.01, self.timer_callback)
@@ -84,8 +84,8 @@ class CommandMode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    commandmode = CommandMode()
-    rclpy.spin(commandmode)
+    command_mode = CommandMode()
+    rclpy.spin(command_mode)
 
 if __name__ == '__main__':
     main()

@@ -30,7 +30,7 @@ def generate_launch_description():
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([PathJoinSubstitution(
-                    [FindPackageShare('commandmode'), 'launch', 'camera.launch.py'])]),
+                    [FindPackageShare('action_franka_bridge'), 'launch', 'camera.launch.py'])]),
                 condition=IfCondition(LaunchConfiguration("launch_controllers"))
             ),
             Node(
@@ -42,15 +42,21 @@ def generate_launch_description():
             ),
             Node(
                 package="action_franka_bridge",
-                executable="data_collection",
-                output="screen",
-                condition=IfCondition(LaunchConfiguration("collect_data")),
-            ),
-            Node(
-                package="action_franka_bridge",
                 executable="model_input_publisher",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("launch_controllers")),
+            ),
+            Node(
+                package="action_franka_bridge",
+                executable="command_mode",
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("launch_controllers")),
+            ),
+            Node(
+                package="action_franka_bridge",
+                executable="data_collection",
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("collect_data")),
             ),
         ]
     )
