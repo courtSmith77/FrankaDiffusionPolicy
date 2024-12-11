@@ -1,13 +1,13 @@
 """
-Collect data for training model.
-
-This node reads in image and position data during demonstrations and
-saves the data to train the models.
+Collect data for visualizing inference actions, executed actions,
+and the end effector position. All data is saved to a "./data/" folder in individual csv files.
 
 PUBLISHERS:
-  + /desired_ee_pose (Pose) - The desired end effector position
-  + /d405/color/image_rect_raw (Image) - The end effector camera raw image feed
-  + /d435/color/image_raw (Image) - The scene camera raw image feed
+  + /predicted_action (Float32MultiArray) - The actions to be executed directly from the diffusion node.
+  + /action_horizon (Float32MultiArray) - The full action horizon directly from the diffusion node.
+  + /current_action (Float32MultiArray) - The action sequence about to be executed on the robot.
+  + /ee_before_action (Float32MultiArray) - The end effector position before executing each action sequence.
+  + /current_ee_pose (Float32MultiArray) - The end effector position at all times sampled from the tf tree.
 SERVICES:
   + /record (Empty) - Enables saving the image and scene data
 """
@@ -37,7 +37,7 @@ class DataCollection(Node):
         self.action_horizon_sub = self.create_subscription(Float32MultiArray, '/action_horizon', self.action_horizon_callback, 10)
         self.current_action_sub = self.create_subscription(Float32MultiArray, '/current_action', self.current_action_callback, 10)
         self.ee_at_action_sub = self.create_subscription(Float32MultiArray, '/ee_before_action', self.ee_before_action_callback, 10)
-        self.ee_at_all_time_sub = self.create_subscription(Pose, '/desired_ee_pose', self.ee_all_time_callback, 10)
+        self.ee_at_all_time_sub = self.create_subscription(Pose, '/current_ee_pose', self.ee_all_time_callback, 10)
 
         # create service
         self.record_srv = self.create_service(Empty, '/record', self.record_callback)

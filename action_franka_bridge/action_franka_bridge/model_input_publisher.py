@@ -1,24 +1,15 @@
 """
-Interpret command mode from user, and converts actions from the diffusion
-model into robot motion.
-
-This node interprets three command states from the user: Begin ('b'), Action
-('a'), Pause ('p' or 's'). These states are used to control whether or not the
-robot performs the actions from the subscribed /predicted_action topic. Actions
-and current robot pose are used within two PD loops, one for position and one for
-orientation, to control the robot.
+This node handles the modification and publishing of the model observations.
 
 SUBSCRIBERS:
-  + /predicted_action (Pose) - The next action position from the diffusion model.
-  + /command_mode (String) - The command mode based on the key pressed.
+  + /d435/color/image_raw (Image) - Raw image from the realsense scene camera feed.
+  + /d405/color/image_rect_raw (Image) - Raw image from the realsense end effector camera feed.
 PUBLISHERS:
-  + /text_marker (Marker) - The text marker that is published to RViz.
-  + /bounding_box (Marker) - The bounding box marker that is published to RViz.
-  + /desired_ee_pose (Pose) - The desired pose of the end effector.
+  + /current_ee_pose (Pose) - The current end effector pose read from the tf tree for diffusion inference.
+  + /scene_image_obs (Image) - The modified scene image for diffusion inference.
+  + /ee_image_obs (Image) - The modified end effector image for diffusion inference.
 SERVICE CLIENTS:
-  + /robot_waypoints (PlanPath) - The service that plans and executes the robot's
-    motion.
-  + /record (Empty) - The service that initiates recording the demonstration data.
+  + frequency (Double) - The frequency of the model inputs being published for diffusion inference.
 """
 from geometry_msgs.msg import Pose
 
@@ -32,7 +23,6 @@ import rclpy
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
 
-import numpy as np
 import cv2
 from cv_bridge import CvBridge
 
@@ -50,7 +40,7 @@ class ModelInputPublisher(Node):
         self.ee_img_sub = self.create_subscription(Image, '/d405/color/image_rect_raw',  self.ee_image_callback, 10)
 
         # create publishers
-        self.desired_ee_pub = self.create_publisher(Pose, 'desired_ee_pose', 10)
+        self.current_ee_pub = self.create_publisher(Pose, 'current_ee_pose', 10)
         self.scene_img_pub = self.create_publisher(Image, 'scene_image_obs', 10)
         self.ee_img_pub = self.create_publisher(Image, 'ee_image_obs', 10)
 
@@ -107,10 +97,6 @@ class ModelInputPublisher(Node):
 
         # TODO: make image size not hard coded
         img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        # old cropping
-        # crop_img = img[150:720, 200:1080]
-        # small_img = cv2.resize(crop_img, (110,70))
-        # new cropping
         crop_img = img[340:710, 300:800]
         small_img = cv2.resize(crop_img, (165,125))
 
@@ -133,7 +119,7 @@ class ModelInputPublisher(Node):
         # publish actual ee pose for diffusion and data collect
         try:
             ee_pose = self.get_ee_pose()
-            self.desired_ee_pub.publish(ee_pose)
+            self.current_ee_pub.publish(ee_pose)
         except AttributeError as e:
             return
 
