@@ -1,9 +1,7 @@
 # FrankaDiffusionPolicy
-This repository contains a ROS package used to execute Diffusion Policy on a Franka Emika Panda Robot. It is used in series with the 
+This repository contains a ROS package used to execute Diffusion Policy on a Franka Emika Panda Robot. This repository is responsible for executing action sequences on the Franka robot. It is used in series with the [Diffusion Repository](https://github.com/courtSmith77/diffusion_policy).
 
-ADD OTHER REPOSITORY
-
-This repository is responsible for executing action sequences on the Franka robot.
+Check out the portfolio Post for this Project [here](https://courtsmith77.github.io/projects/07-diffusionpolicy).
 
 ## How to run
 ### Simulation

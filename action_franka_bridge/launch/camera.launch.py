@@ -18,8 +18,6 @@ def generate_launch_description():
                     'rs_launch.py'
                 ])
             ),
-            condition=IfCondition(EqualsSubstitution(
-                LaunchConfiguration("use_realsense"), "true")),
             launch_arguments={
                 "camera_name": "d405",
                 "device_type": "d405",
@@ -50,8 +48,6 @@ def generate_launch_description():
                     'rs_launch.py'
                 ])
             ),
-            condition=IfCondition(EqualsSubstitution(
-                LaunchConfiguration("use_realsense"), "true")),
             launch_arguments={
                 "camera_name": "d435",
                 "device_type": "d435",

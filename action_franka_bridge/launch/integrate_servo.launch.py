@@ -50,6 +50,7 @@ def generate_launch_description():
                 package="action_franka_bridge",
                 executable="command_mode",
                 output="screen",
+                prefix="xterm -e",
                 condition=IfCondition(LaunchConfiguration("launch_controllers")),
             ),
             Node(
