@@ -1,3 +1,15 @@
+"""
+Utilizes Moveit2 to perform actions on the Franka robot. It launches
+a moveit2 client node which contains the following ROS mechanisms:
+
+SUBSCRIBERS:
+  + /joint_states (JointState) - Listens to the current joint of the franka.
+SERVICE CLIENTS:
+  + /compute_cartesian_path (GetCartesianPath) - Computes a cartesian path from a series of waypoints.
+ACTION CLIENTS:
+  + /execute_trajectory (ExecuteTrajectory) - Performs the computed cartesian path.
+"""
+
 import rclpy
 import rclpy.node
 from rclpy.callback_groups import ReentrantCallbackGroup
