@@ -1,24 +1,17 @@
 """
-Control the status of the diffusion model inference and action deployment.
+Control the status of the diffusion model inference and action deployment. It
+launches a xterm screen where key presses indicate:
+    'b' - "begin" enable diffusion
+    'p' - "pause" disable diffusion
 
-Using tty and sys to read keyboard inputs to trigger service calls to start
-or stop the diffusion model inference and action deployment within the 
-diffusion_policy node. Additionally, the command_mode is sent to the TODO: input node name
-to trigger state updates.
-
-PUBLISHERS:
-  + /command_mode (String) - The command mode for the key pressed.
 SERVICE CLIENTS:
-  + /start_inference (Empty) - Enables inference with empty request
-  + /start_action (Empty) - Enables action deployment with empty request
-  + /stop_inference (Empty) - Disables inference with empty request
-  + /stop_action (Empty) - Disables inference with empty request
+  + /enable_diffusion (Empty) - Enables diffusion with an empty request.
+  + /disable_diffusion (Empty) - Disables diffusion with an empty request.
+  + /record (Empty) - Triggers recording data through the data_collection node.
 """
 import rclpy
 from rclpy.node import Node
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-from std_msgs.msg import String
 from std_srvs.srv import Empty
 
 import sys
